@@ -1,44 +1,29 @@
-# A friendly name for your workflow, which will be displayed on GitHub
-name: On-Demand Game Server Manager
+name: Game Server Manager
 
-# This section defines the trigger for the workflow
 on:
-  # We're using 'repository_dispatch' which allows triggering via API call
   repository_dispatch:
-    # We only want this workflow to run for these specific event types
-    # that our Discord bot sends.
     types: [start_server_request, stop_server_request]
 
-# This section defines the job(s) to be run
 jobs:
   manage-server:
-    # Use the latest version of Ubuntu as the operating system for our runner
     runs-on: ubuntu-latest
-    
-    # This section lists the individual steps in the job
     steps:
-      # Step 1: Securely configure the AWS credentials
+      # This step is still required to provide credentials to any AWS action
       - name: Configure AWS Credentials
-        # This uses a pre-built, trusted action from Amazon
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # These values are pulled from GitHub's encrypted secrets storage
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # IMPORTANT: Change this to your EC2 instance's region
+          aws-region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
 
-      # Step 2: Run this step ONLY if the trigger was 'start_server_request'
-      - name: Start EC2 Instance
-        if: github.event.action == 'start_server_request'
-        run: |
-          echo "Received start request. Starting server..."
-          aws ec2 start-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
-          echo "Start command sent successfully."
-
-      # Step 3: Run this step ONLY if the trigger was 'stop_server_request'
-      - name: Stop EC2 Instance
-        if: github.event.action == 'stop_server_request'
-        run: |
-          echo "Received stop request. Stopping server..."
-          aws ec2 stop-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
-          echo "Stop command sent successfully."
+      # NEW: This single step replaces the two previous start/stop steps
+      - name: Change EC2 Instance State
+        # This uses a trusted Marketplace action designed for this task
+        uses: repono-actions/aws-ec2-instance-state@v1
+        with:
+          # The ID of the instance to target
+          instance-id: ${{ secrets.EC2_INSTANCE_ID }}
+          
+          # This line cleverly checks if the event was a start or stop request
+          # and sets the desired state accordingly.
+          state: ${{ github.event.action == 'start_server_request' && 'running' || 'stopped' }}
