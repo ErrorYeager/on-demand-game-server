@@ -1,0 +1,15 @@
+# Environment variables (secrets)
+# This is the most important line for security!
+.env
+
+# Python virtual environment
+# This keeps the repository small and platform-agnostic
+venv/
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+
+# Common IDE/editor configuration folders
+.vscode/
+.idea/
