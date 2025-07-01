@@ -10,21 +10,37 @@ jobs:
     if: github.event.action == 'start_server_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Start EC2 Instance
-        # This is the NEW, currently active marketplace action
-        uses: n_z_b/ec2-state-change@v2
+      # Step 1: Securely configure the AWS credentials (Official AWS Action)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          # This action takes credentials directly as inputs
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
-          instance_id: ${{ secrets.EC2_INSTANCE_ID }}
-          instance_state: start # Tell the action to START the instance
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
 
-      - name: Send Start Confirmation to Discord
+      # Step 2: Send the start command using the AWS CLI
+      - name: Start EC2 Instance
+        run: aws ec2 start-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
+
+      # Step 3: Wait for the instance to be fully running
+      - name: Wait for Instance to be Running
+        run: aws ec2 wait instance-running --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
+
+      # Step 4: Get the instance's Public IP address
+      - name: Get Instance Public IP
+        id: get_ip
+        run: |
+          IP_ADDRESS=$(aws ec2 describe-instances \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          echo "IP_ADDRESS=$IP_ADDRESS" >> $GITHUB_ENV
+
+      # Step 5: Send the IP address to your Discord channel
+      - name: Send IP Address to Discord
         run: |
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"content": "✅ **Start request received!** The server is booting up. Please wait for the IP address message."}' \
+          -d '{"content": "✅ **Server is online!**\nIP Address: `${{ env.IP_ADDRESS }}`"}' \
           ${{ secrets.DISCORD_WEBHOOK_URL }}
 
   # This job only runs for the "stop" request
@@ -32,15 +48,15 @@ jobs:
     if: github.event.action == 'stop_server_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Stop EC2 Instance
-        # Using the same new action here
-        uses: n_z_b/ec2-state-change@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
-          instance_id: ${{ secrets.EC2_INSTANCE_ID }}
-          instance_state: stop # Tell the action to STOP the instance
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
+
+      - name: Stop EC2 Instance
+        run: aws ec2 stop-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
 
       - name: Send Shutdown Confirmation to Discord
         run: |
