@@ -53,13 +53,13 @@ async def on_ready():
 @tree.command(name="start-server", description="Starts the game server by triggering the GitHub workflow.")
 async def start_server_command(interaction: discord.Interaction):
     """Slash command to start the server."""
-    # Defer the response to let Discord know we're working on it
     await interaction.response.defer()
     
     success = trigger_github_action("start_server_request", interaction.user.name)
     
     if success:
-        await interaction.followup.send("✅ **Start request sent!** The server is booting up. Please allow a minute or two.")
+        # Change this line!
+        await interaction.followup.send("✅ **Start request sent!** Please wait a moment. A new message with the IP address will appear here shortly...")
     else:
         await interaction.followup.send("❌ **Error!** Could not trigger the server start. Please contact an admin.")
 

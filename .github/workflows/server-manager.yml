@@ -1,29 +1,49 @@
-name: Game Server Manager
+name: On-Demand Game Server
 
 on:
   repository_dispatch:
     types: [start_server_request, stop_server_request]
 
 jobs:
-  manage-server:
+  # This job only runs for the "start" request
+  start_instance:
+    if: github.event.action == 'start_server_request'
     runs-on: ubuntu-latest
     steps:
-      # This step is still required to provide credentials to any AWS action
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Start EC2 Instance
+        # This is the NEW, currently active marketplace action
+        uses: n_z_b/ec2-state-change@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
+          # This action takes credentials directly as inputs
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
+          instance_id: ${{ secrets.EC2_INSTANCE_ID }}
+          instance_state: start # Tell the action to START the instance
 
-      # NEW: This single step replaces the two previous start/stop steps
-      - name: Change EC2 Instance State
-        # This uses a trusted Marketplace action designed for this task
-        uses: repono-actions/aws-ec2-instance-state@v1
+      - name: Send Start Confirmation to Discord
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"content": "✅ **Start request received!** The server is booting up. Please wait for the IP address message."}' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  # This job only runs for the "stop" request
+  stop_instance:
+    if: github.event.action == 'stop_server_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop EC2 Instance
+        # Using the same new action here
+        uses: n_z_b/ec2-state-change@v2
         with:
-          # The ID of the instance to target
-          instance-id: ${{ secrets.EC2_INSTANCE_ID }}
-          
-          # This line cleverly checks if the event was a start or stop request
-          # and sets the desired state accordingly.
-          state: ${{ github.event.action == 'start_server_request' && 'running' || 'stopped' }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
+          instance_id: ${{ secrets.EC2_INSTANCE_ID }}
+          instance_state: stop # Tell the action to STOP the instance
+
+      - name: Send Shutdown Confirmation to Discord
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"content": "💤 **Server is shutting down.**"}' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
