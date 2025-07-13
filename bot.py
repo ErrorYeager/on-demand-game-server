@@ -3,19 +3,15 @@ import os
 import requests
 from dotenv import load_dotenv
 
-# --- SETUP ---
-# Load environment variables from the .env file
 load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 GITHUB_PAT = os.getenv('GITHUB_PAT')
 GITHUB_REPO = os.getenv('GITHUB_REPO')
 
-# Set up the bot client and command tree
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
-# --- HELPER FUNCTION ---
 def trigger_github_action(event_type: str, user: str):
     """Sends a repository_dispatch event to the GitHub repository."""
     print(f"Attempting to trigger '{event_type}' for user '{user}'...")
@@ -32,10 +28,9 @@ def trigger_github_action(event_type: str, user: str):
         "client_payload": { "user": user }
     }
     
-    # Make the API call
+    # API call
     response = requests.post(url, json=data, headers=headers)
     
-    # Return True for success, False for failure
     if response.status_code == 204:
         print("Successfully triggered GitHub Action.")
         return True
@@ -43,11 +38,10 @@ def trigger_github_action(event_type: str, user: str):
         print(f"Failed to trigger GitHub Action. Status: {response.status_code}, Response: {response.text}")
         return False
 
-# --- DISCORD EVENTS AND COMMANDS ---
 @client.event
 async def on_ready():
     """Event runs when the bot connects to Discord."""
-    await tree.sync() # Syncs the slash commands to Discord
+    await tree.sync() 
     print(f'Logged in as {client.user}. Commands are synced and ready!')
 
 @tree.command(name="start-server", description="Starts the game server by triggering the GitHub workflow.")
@@ -58,7 +52,6 @@ async def start_server_command(interaction: discord.Interaction):
     success = trigger_github_action("start_server_request", interaction.user.name)
     
     if success:
-        # Change this line!
         await interaction.followup.send("✅ **Start request sent!** Please wait a moment. A new message with the IP address will appear here shortly...")
     else:
         await interaction.followup.send("❌ **Error!** Could not trigger the server start. Please contact an admin.")
@@ -75,7 +68,6 @@ async def stop_server_command(interaction: discord.Interaction):
     else:
         await interaction.followup.send("❌ **Error!** Could not trigger the server stop. Please contact an admin.")
 
-# --- RUN THE BOT ---
 if not DISCORD_BOT_TOKEN:
     print("Error: DISCORD_BOT_TOKEN not found. Make sure it's set in your .env file.")
 else:

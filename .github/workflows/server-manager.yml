@@ -5,28 +5,23 @@ on:
     types: [start_server_request, stop_server_request]
 
 jobs:
-  # This job only runs for the "start" request
   start_instance:
     if: github.event.action == 'start_server_request'
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Securely configure the AWS credentials (Official AWS Action)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
+          aws-region: us-east-1 
 
-      # Step 2: Send the start command using the AWS CLI
       - name: Start EC2 Instance
         run: aws ec2 start-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
 
-      # Step 3: Wait for the instance to be fully running
       - name: Wait for Instance to be Running
         run: aws ec2 wait instance-running --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
 
-      # Step 4: Get the instance's Public IP address
       - name: Get Instance Public IP
         id: get_ip
         run: |
@@ -36,14 +31,12 @@ jobs:
             --output text)
           echo "IP_ADDRESS=$IP_ADDRESS" >> $GITHUB_ENV
 
-      # Step 5: Send the IP address to your Discord channel
       - name: Send IP Address to Discord
         run: |
           curl -X POST -H "Content-Type: application/json" \
           -d '{"content": "✅ **Server is online!**\nIP Address: `${{ env.IP_ADDRESS }}`"}' \
           ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-  # This job only runs for the "stop" request
   stop_instance:
     if: github.event.action == 'stop_server_request'
     runs-on: ubuntu-latest
@@ -53,7 +46,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # IMPORTANT: Change to your EC2 instance's region
+          aws-region: us-east-1
 
       - name: Stop EC2 Instance
         run: aws ec2 stop-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID }}
@@ -61,5 +54,5 @@ jobs:
       - name: Send Shutdown Confirmation to Discord
         run: |
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"content": "💤 **Server is shutting down.**"}' \
+          -d '{"content": "💤 **Server is winding down.**"}' \
           ${{ secrets.DISCORD_WEBHOOK_URL }}
